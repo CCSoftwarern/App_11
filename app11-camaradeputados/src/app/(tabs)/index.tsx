@@ -1,69 +1,78 @@
 import { useState } from 'react';
-import { View, Text, StyleSheet, Image, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, Image, ScrollView, Pressable } from 'react-native';
 import { TextInput, List } from 'react-native-paper';
 import { Button } from 'react-native-paper';
-import { Filme } from '../tipos/filme';
+import { Deputado } from '@/tipos/deputado';
+import { router } from 'expo-router';
 
-const API_KEY = 'a279621c';
-const  API = `http://www.omdbapi.com/?apikey=${API_KEY}`
+
+const  API = `https://dadosabertos.camara.leg.br/api/v2/deputados`
 
 export default function TabIndex() {
     const [text, setText] = useState('');
-    const [movies, setMovies] = useState<Filme[]>([]);
+    const [deputados, setDeputados] = useState<Deputado[]>([]);
     const [loading, setLoading] = useState(false);
     const [errorMessage, setErrorMessage] = useState('');
 
-  async function getMovie(title: string) {
-    const movieTitle = title.trim();
-
-    if (!movieTitle) {
-      setErrorMessage('Informe o nome do filme para buscar.');
-      return;
-    }
-
-    setLoading(true);
-    setErrorMessage('');
-
-    try {
-      const res = await fetch(`${API}&t=${movieTitle}`);
-      const data = await res.json();
-
-      if (data.Response === 'True') {
-        const movieWithId = {
-          ...data,
-          id: `${data.Title}-${Date.now()}`,
-        };
-
-        setMovies((prevMovies) => [movieWithId, ...prevMovies]);
-        setText('');
-      } else {
-        setErrorMessage(data.Error || 'Nenhum filme encontrado.');
-      }
-    } catch (err) {
-      console.log(err);
-      setErrorMessage('Não foi possível buscar o filme.');
-    } finally {
-      setLoading(false);
-    }
+  /*Função para buscar deputados por UF*/
+  async function getDeputados(uf: string) {
+  /*Verificar se o UF foi informado, se não retorna mensagem de erro*/
+  if (!uf.trim()) {
+    setErrorMessage('Informe a UF do deputado para buscar.');
+    return;
   }
+  /* Montar a url com a api informada acima e adcionando sigla*/
+  const url = `${API}?siglaUf=${uf}&ordem=ASC&ordenarPor=nome`;
+
+  /*setar Loading e limpar mensagem de erro*/
+  setLoading(true);
+  setErrorMessage('');
+
+  try {
+    /*faço a requisição usando fetch e verifica se a resposta foi ok caso contrario emmite um erro*/
+    const res = await fetch(url);
+
+    if (!res.ok) {
+      throw new Error('Erro ao buscar dados');
+    }
+
+    const data = await res.json();
+/*Verificar se a resposta tem um array de deputados e se ele tem elementos*/
+    if (Array.isArray(data.dados) && data.dados.length > 0) {
+      setDeputados(data.dados);
+      setText('');
+    } else {
+      setDeputados([]);
+      setErrorMessage('Nenhum deputado encontrado.');
+    }
+  /*tratamento de erros*/
+  } catch (err) {
+    console.log(err);
+    setErrorMessage('Não foi possível buscar os deputados no momento.');
+  } finally {
+    setLoading(false);
+  }
+}
 
   return (
     <View style={styles.containerCaixaPesquisa}>
       <TextInput
-      label="Nome do filme"
+      maxLength={2}
+      autoCapitalize="characters"
+      label="UF do deputado"
       value={text}
       onChangeText={setText}
-      placeholder="Digite o título do filme"
+      placeholder="Digite a UF do deputado"
     />
 
   <Button style={{ marginTop: 16 }}
     icon="magnify"
     mode="contained"
-    onPress={() => getMovie(text)}
+    onPress={() => getDeputados(text)}
     loading={loading}
     disabled={loading}
   >
-    Buscar filme
+    Buscar deputado
   </Button>
 
   {errorMessage ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
@@ -74,31 +83,34 @@ export default function TabIndex() {
     showsVerticalScrollIndicator={true}
   >
     <List.Section title="Resultados">
-      {movies.length === 0 ? (
+      {deputados.length === 0 ? (
         <List.Item
-          title="Nenhum filme pesquisado ainda"
-          description="Digite um título e pressione Buscar filme."
-          left={(props) => <List.Icon {...props} icon="movie-open" />}
+          title="Nenhum deputado pesquisado ainda"
+          description="Digite um nome e pressione Buscar deputado."
+          left={(props) => <List.Icon {...props} icon="account" />}
         />
       ) : (
-        movies.map((movie, index) => (
+        deputados.map((deputado, index) => (
+          /* list do componente react-native-paper*/
+        <Pressable key={deputado.id} style={styles.texto} onPress={() => router.navigate({ pathname: '/[id]', params: { id: deputado.id, nome: deputado.nome, urlimg: deputado.urlFoto } })}>
           <List.Item
-            key={movie.id || `${movie.Title}-${movie.Year}-${index}`}
-            title={movie.Title}
-            description={`${movie.Year} • ${movie.Genre || 'Filme'}`}
+            key={deputado.id || `${deputado.nome}-${deputado.siglaUf}-${index}`}
+            title={deputado.nome}
+            description={`${deputado.siglaUf} • ${deputado.siglaPartido || 'Partido desconhecido'}`}
             left={(props) =>
-              movie.Poster && movie.Poster !== 'N/A' ? (
+              deputado.urlFoto && deputado.urlFoto !== 'N/A' ? (
                 <View style={styles.posterContainer}>
                   <Image
-                    source={{ uri: movie.Poster }}
-                    style={styles.posterImage}
+                    source={{ uri: deputado.urlFoto }}
+                    style={styles.fotoImage}
                   />
                 </View>
               ) : (
-                <List.Icon {...props} icon="movie" />
+                <List.Icon {...props} icon="account" />
               )
             }
           />
+           </Pressable> 
         ))
       )}
     </List.Section>
@@ -131,7 +143,7 @@ const styles = StyleSheet.create({
   posterContainer: {
     marginRight: 8,
   },
-  posterImage: {
+  fotoImage: {
     width: 56,
     height: 80,
     borderRadius: 0,

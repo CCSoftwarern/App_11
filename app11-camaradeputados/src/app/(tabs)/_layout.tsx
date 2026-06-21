@@ -11,13 +11,6 @@ export default function TabLayout() {
           tabBarIcon: ({ color }) => <FontAwesome size={28} name="users" color={color} />,
         }}
       />
-      <Tabs.Screen
-        name="lista"
-        options={{
-          title: 'Lista de filmes',
-          tabBarIcon: ({ color }) => <FontAwesome size={28} name="list" color={color} />,
-        }}
-      />
     </Tabs>
   );
 }
